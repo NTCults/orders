@@ -112,7 +112,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
     "internal_signature": "",
     "customer_id": "",
     "delivery_service": "",
-    "sharedkey": "",
+    "shardkey": "",
     "sm_id": 0,
     "date_created": "0001-01-01T00:00:00Z",
     "oof_shard": ""

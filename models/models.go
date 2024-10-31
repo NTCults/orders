@@ -16,7 +16,7 @@ type Order struct {
 	InternalSignature string    `json:"internal_signature"`
 	CustomerID        string    `json:"customer_id"`
 	DeliveryService   string    `json:"delivery_service"`
-	Shardkey          string    `json:"sharedkey"`
+	Shardkey          string    `json:"shardkey"`
 	SmID              int       `json:"sm_id"`
 	DateCreated       time.Time `json:"date_created"`
 	OofShard          string    `json:"oof_shard"`
