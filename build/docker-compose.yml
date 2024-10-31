@@ -1,0 +1,45 @@
+services:
+  orders:
+    container_name: orders
+    build:
+      context: ..
+      dockerfile: ./build/Dockerfile
+    ports:
+      - 8090:8090
+    environment:
+      - DB_CONN_STRING=host=postgres user=user password=secret dbname=orders_db sslmode=disable
+      - SQL_PATH=/sql/init_db.sql
+      - NATS_URL=nats://nats:4222
+      - DEBUG=true
+    depends_on:
+      - postgres
+      - nats
+
+  postgres:
+    image: postgres:14-alpine
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_USER=user
+      - POSTGRES_DB=db
+
+  nats:
+    image: "nats-streaming:latest"
+    restart: "always"
+
+  client:
+    container_name: client
+    build:
+      context: ..
+      dockerfile: ./build/Dockerfile.client
+    ports:
+      - 8091:8091
+    environment:
+      - PORT=8091
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      - postgres
+      - nats
+      - orders
+
