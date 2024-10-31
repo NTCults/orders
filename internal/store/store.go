@@ -12,13 +12,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Store struct {
+type Store interface {
+	GetAllOrders() []*models.Order
+	GetOrder(orderUID string) (*models.Order, error)
+	SetOrder(order *models.Order) error
+	Close()
+}
+
+type PGStore struct {
 	db       *sql.DB
 	cache    cache.Cache
 	cacheTTL time.Duration
 }
 
-func NewStore(cfg *config.Config) *Store {
+func NewPGStore(cfg *config.Config) Store {
 	var db *sql.DB
 	err := retry.Do(
 		func() error {
@@ -38,7 +45,7 @@ func NewStore(cfg *config.Config) *Store {
 		logrus.WithField("DB_CONN_STR", cfg.DBConnString).Fatal("Unable to connect to db.")
 	}
 
-	store := &Store{
+	store := &PGStore{
 		db:       db,
 		cacheTTL: cfg.CacheTTL,
 		cache:    *cache.New(cfg.CacheTTL, cfg.CacheCleanupInterval),
@@ -51,11 +58,11 @@ func NewStore(cfg *config.Config) *Store {
 	return store
 }
 
-func (s *Store) Close() {
+func (s *PGStore) Close() {
 	s.db.Close()
 }
 
-func (s *Store) populateCache() error {
+func (s *PGStore) populateCache() error {
 	orders, err := s.getAllOrdersFromDB()
 	if err != nil {
 		return err
@@ -67,7 +74,7 @@ func (s *Store) populateCache() error {
 	return nil
 }
 
-func (s *Store) GetAllOrders() []*models.Order {
+func (s *PGStore) GetAllOrders() []*models.Order {
 	orders := []*models.Order{}
 	for _, i := range s.cache.Items() {
 		order := i.Object.(*models.Order)
@@ -77,7 +84,7 @@ func (s *Store) GetAllOrders() []*models.Order {
 	return orders
 }
 
-func (s *Store) GetOrder(orderUID string) (*models.Order, error) {
+func (s *PGStore) GetOrder(orderUID string) (*models.Order, error) {
 	orderCached, ok := s.cache.Get(orderUID)
 	if ok {
 		order := orderCached.(*models.Order)
@@ -101,7 +108,7 @@ func (s *Store) GetOrder(orderUID string) (*models.Order, error) {
 	return order, nil
 }
 
-func (s *Store) SetOrder(order *models.Order) error {
+func (s *PGStore) SetOrder(order *models.Order) error {
 	if err := s.writeOrderTX(order); err != nil {
 		return err
 	}

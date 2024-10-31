@@ -11,10 +11,10 @@ import (
 
 type Service struct {
 	Router *mux.Router
-	store  *store.Store
+	store  store.Store
 }
 
-func NewService(db *store.Store) *Service {
+func NewService(db store.Store) *Service {
 	r := mux.NewRouter()
 
 	service := &Service{
@@ -37,8 +37,8 @@ func (s *Service) getOrdersList(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) getOrder(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-
 	orderUID := vars["orderUID"]
+
 	order, err := s.store.GetOrder(orderUID)
 	if err != nil {
 		utils.ResponseError(w, http.StatusInternalServerError, err.Error())

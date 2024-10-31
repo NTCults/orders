@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (s *Store) writeOrderTX(order *models.Order) error {
+func (s *PGStore) writeOrderTX(order *models.Order) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func writeItemsToDB(tx *sql.Tx, order *models.Order) error {
 	return nil
 }
 
-func (s *Store) getAllOrdersFromDB() ([]*models.Order, error) {
+func (s *PGStore) getAllOrdersFromDB() ([]*models.Order, error) {
 	rows, err := s.db.Query(`
 		SELECT 
 			orders.order_uid,
@@ -194,7 +194,7 @@ func (s *Store) getAllOrdersFromDB() ([]*models.Order, error) {
 	return orders, nil
 }
 
-func (s *Store) getOrderFromDB(orderUID string) (*models.Order, error) {
+func (s *PGStore) getOrderFromDB(orderUID string) (*models.Order, error) {
 	row := s.db.QueryRow(`
 		SELECT 
 			orders.order_uid,
@@ -273,7 +273,7 @@ func (s *Store) getOrderFromDB(orderUID string) (*models.Order, error) {
 	return &o, nil
 }
 
-func (s *Store) getOrderItems(orderUID string) ([]*models.Item, error) {
+func (s *PGStore) getOrderItems(orderUID string) ([]*models.Item, error) {
 	rows, err := s.db.Query(`
 		SELECT
 			chart_id,

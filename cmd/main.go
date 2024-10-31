@@ -25,7 +25,7 @@ func main() {
 	}
 	log.SetFormatter(&log.JSONFormatter{})
 
-	store := store.NewStore(cfg)
+	store := store.NewPGStore(cfg)
 	defer store.Close()
 
 	ordersQuery, err := query.NewNatsOrdersQuery(context.TODO(), store, cfg)

@@ -18,11 +18,11 @@ const NatsSubject = "orders."
 type NatsOrdersQuery struct {
 	nc    *nats.Conn
 	sub   *nats.Subscription
-	store *store.Store
+	store store.Store
 	debug bool
 }
 
-func NewNatsOrdersQuery(ctx context.Context, store *store.Store, cfg *config.Config) (*NatsOrdersQuery, error) {
+func NewNatsOrdersQuery(ctx context.Context, store store.Store, cfg *config.Config) (*NatsOrdersQuery, error) {
 	nc, err := nats.Connect(cfg.NatsURL)
 	if err != nil {
 		return nil, err
