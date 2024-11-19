@@ -25,12 +25,12 @@ func main() {
 	}
 	log.SetFormatter(&log.JSONFormatter{})
 
-	store := store.NewPGStore(cfg)
+	store := store.NewStore(cfg)
 	defer store.Close()
 
-	ordersQuery, err := query.NewNatsOrdersQuery(context.TODO(), store, cfg)
+	ordersQuery, err := query.NewNatsOrdersQuery(store, cfg)
 	if err != nil {
-		log.WithField("NATS_URL", cfg.NatsURL).Fatal("Unable to connect to nats-streaming")
+		log.WithField(config.NATS_URL, cfg.NatsURL).Fatal("Unable to connect to nats")
 	}
 
 	service := service.NewService(store)

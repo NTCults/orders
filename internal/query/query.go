@@ -2,11 +2,9 @@ package query
 
 import (
 	"bytes"
-	"context"
 	"encoding/gob"
 	"orders/internal/config"
 	"orders/internal/metrics"
-	"orders/internal/store"
 	"orders/models"
 
 	"github.com/nats-io/nats.go"
@@ -16,22 +14,26 @@ import (
 const NatsSubject = "orders."
 
 type NatsOrdersQuery struct {
-	nc    *nats.Conn
-	sub   *nats.Subscription
-	store store.Store
-	debug bool
+	nc           *nats.Conn
+	sub          *nats.Subscription
+	ordersWriter OrdersWriter
+	debug        bool
 }
 
-func NewNatsOrdersQuery(ctx context.Context, store store.Store, cfg *config.Config) (*NatsOrdersQuery, error) {
+type OrdersWriter interface {
+	SetOrder(order *models.Order) error
+}
+
+func NewNatsOrdersQuery(ordersWriter OrdersWriter, cfg *config.Config) (*NatsOrdersQuery, error) {
 	nc, err := nats.Connect(cfg.NatsURL)
 	if err != nil {
 		return nil, err
 	}
 
 	noq := &NatsOrdersQuery{
-		nc:    nc,
-		store: store,
-		debug: cfg.Debug,
+		nc:           nc,
+		ordersWriter: ordersWriter,
+		debug:        cfg.Debug,
 	}
 
 	sub, err := nc.Subscribe(NatsSubject+"*", noq.ReceiveOrderHandler)
@@ -73,7 +75,7 @@ func (q *NatsOrdersQuery) ReceiveOrderHandler(m *nats.Msg) {
 		return
 	}
 
-	if err := q.store.SetOrder(&order); err != nil {
+	if err := q.ordersWriter.SetOrder(&order); err != nil {
 		metrics.OrdersReceiveErrors.Inc()
 		logrus.WithField("order", order).WithError(err).Error("unable to save order")
 		return

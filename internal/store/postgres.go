@@ -2,13 +2,45 @@ package store
 
 import (
 	"database/sql"
+	"orders/internal/config"
 	"orders/models"
+	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/sirupsen/logrus"
 )
 
-func (s *PGStore) writeOrderTX(order *models.Order) error {
-	tx, err := s.db.Begin()
+type dBConnector struct {
+	db *sql.DB
+}
+
+func NewDBConnector(cfg *config.Config) *dBConnector {
+	var db *sql.DB
+	err := retry.Do(
+		func() error {
+			var err error
+			db, err = sql.Open("postgres", cfg.DBConnString)
+			if err != nil {
+				logrus.Info("Trying to connect to db.")
+				return err
+			}
+			return nil
+		},
+		retry.Attempts(5),
+		retry.Delay(time.Second),
+	)
+
+	if err != nil {
+		logrus.WithField("DB_CONN_STR", cfg.DBConnString).Fatal("Unable to connect to db.")
+	}
+
+	return &dBConnector{
+		db: db,
+	}
+}
+
+func (d *dBConnector) writeOrder(order *models.Order) error {
+	tx, err := d.db.Begin()
 	if err != nil {
 		return err
 	}
@@ -153,8 +185,8 @@ func writeItemsToDB(tx *sql.Tx, order *models.Order) error {
 	return nil
 }
 
-func (s *PGStore) getAllOrdersFromDB() ([]*models.Order, error) {
-	rows, err := s.db.Query(`
+func (d *dBConnector) getAllOrders() ([]*models.Order, error) {
+	rows, err := d.db.Query(`
 		SELECT 
 			orders.order_uid,
 			orders.track_number,
@@ -181,8 +213,7 @@ func (s *PGStore) getAllOrdersFromDB() ([]*models.Order, error) {
 			return nil, err
 		}
 
-		items, err := s.getOrderItems(o.OrderUID)
-		// хз как обрабатывать
+		items, err := d.getOrderItems(o.OrderUID)
 		if err != nil {
 			logrus.WithField("runContext", "store.getAllOdersFromDB").Error(err)
 		}
@@ -194,8 +225,8 @@ func (s *PGStore) getAllOrdersFromDB() ([]*models.Order, error) {
 	return orders, nil
 }
 
-func (s *PGStore) getOrderFromDB(orderUID string) (*models.Order, error) {
-	row := s.db.QueryRow(`
+func (d *dBConnector) getOrder(orderUID string) (*models.Order, error) {
+	row := d.db.QueryRow(`
 		SELECT 
 			orders.order_uid,
 			orders.track_number,
@@ -263,7 +294,7 @@ func (s *PGStore) getOrderFromDB(orderUID string) (*models.Order, error) {
 		return nil, err
 	}
 
-	items, err := s.getOrderItems(orderUID)
+	items, err := d.getOrderItems(orderUID)
 	if err != nil {
 		return nil, err
 	}
@@ -273,8 +304,8 @@ func (s *PGStore) getOrderFromDB(orderUID string) (*models.Order, error) {
 	return &o, nil
 }
 
-func (s *PGStore) getOrderItems(orderUID string) ([]*models.Item, error) {
-	rows, err := s.db.Query(`
+func (d *dBConnector) getOrderItems(orderUID string) ([]*models.Item, error) {
+	rows, err := d.db.Query(`
 		SELECT
 			chart_id,
 			track_number,
@@ -309,4 +340,8 @@ func (s *PGStore) getOrderItems(orderUID string) ([]*models.Item, error) {
 		items = append(items, &i)
 	}
 	return items, nil
+}
+
+func (d *dBConnector) closeConnection() error {
+	return d.db.Close()
 }

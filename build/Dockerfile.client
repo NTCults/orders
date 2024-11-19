@@ -1,5 +1,5 @@
 FROM golang:alpine
 WORKDIR /
 COPY . .
-RUN go build -o cli -mod vendor ./client/client.go
+RUN go build -o cli -mod vendor ./cmd/client/client.go
 CMD ["./cli"]

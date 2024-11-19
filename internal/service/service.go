@@ -2,8 +2,8 @@ package service
 
 import (
 	"net/http"
-	"orders/internal/store"
 	"orders/internal/utils"
+	"orders/models"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -11,10 +11,16 @@ import (
 
 type Service struct {
 	Router *mux.Router
-	store  store.Store
+	store  Store
 }
 
-func NewService(db store.Store) *Service {
+type Store interface {
+	GetAllOrders() []*models.Order
+	GetOrder(orderUID string) (*models.Order, error)
+	// SetOrder(order *models.Order) error
+}
+
+func NewService(db Store) *Service {
 	r := mux.NewRouter()
 
 	service := &Service{

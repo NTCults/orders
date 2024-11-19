@@ -1,54 +1,35 @@
 package store
 
 import (
-	"database/sql"
 	"orders/internal/config"
 	"orders/models"
 	"time"
 
-	"github.com/avast/retry-go"
 	_ "github.com/lib/pq"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 )
 
-type Store interface {
-	GetAllOrders() []*models.Order
-	GetOrder(orderUID string) (*models.Order, error)
-	SetOrder(order *models.Order) error
-	Close()
+type DBConnector interface {
+	writeOrder(order *models.Order) error
+	getOrder(orderUID string) (*models.Order, error)
+	getAllOrders() ([]*models.Order, error)
+	closeConnection() error
 }
 
-type PGStore struct {
-	db       *sql.DB
-	cache    cache.Cache
+type Store struct {
+	db       DBConnector
+	cache    *cache.Cache
 	cacheTTL time.Duration
 }
 
-func NewPGStore(cfg *config.Config) Store {
-	var db *sql.DB
-	err := retry.Do(
-		func() error {
-			var err error
-			db, err = sql.Open("postgres", cfg.DBConnString)
-			if err != nil {
-				logrus.Info("Trying to connect to db.")
-				return err
-			}
-			return nil
-		},
-		retry.Attempts(5),
-		retry.Delay(time.Second),
-	)
+func NewStore(cfg *config.Config) *Store {
+	dBConnector := NewDBConnector(cfg)
 
-	if err != nil {
-		logrus.WithField("DB_CONN_STR", cfg.DBConnString).Fatal("Unable to connect to db.")
-	}
-
-	store := &PGStore{
-		db:       db,
+	store := &Store{
+		db:       dBConnector,
 		cacheTTL: cfg.CacheTTL,
-		cache:    *cache.New(cfg.CacheTTL, cfg.CacheCleanupInterval),
+		cache:    cache.New(cfg.CacheTTL, cfg.CacheCleanupInterval),
 	}
 
 	if err := store.populateCache(); err != nil {
@@ -58,12 +39,12 @@ func NewPGStore(cfg *config.Config) Store {
 	return store
 }
 
-func (s *PGStore) Close() {
-	s.db.Close()
+func (s *Store) Close() {
+	s.db.closeConnection()
 }
 
-func (s *PGStore) populateCache() error {
-	orders, err := s.getAllOrdersFromDB()
+func (s *Store) populateCache() error {
+	orders, err := s.db.getAllOrders()
 	if err != nil {
 		return err
 	}
@@ -74,7 +55,7 @@ func (s *PGStore) populateCache() error {
 	return nil
 }
 
-func (s *PGStore) GetAllOrders() []*models.Order {
+func (s *Store) GetAllOrders() []*models.Order {
 	orders := []*models.Order{}
 	for _, i := range s.cache.Items() {
 		order := i.Object.(*models.Order)
@@ -84,14 +65,14 @@ func (s *PGStore) GetAllOrders() []*models.Order {
 	return orders
 }
 
-func (s *PGStore) GetOrder(orderUID string) (*models.Order, error) {
+func (s *Store) GetOrder(orderUID string) (*models.Order, error) {
 	orderCached, ok := s.cache.Get(orderUID)
 	if ok {
 		order := orderCached.(*models.Order)
 		return order, nil
 	}
 
-	order, err := s.getOrderFromDB(orderUID)
+	order, err := s.db.getOrder(orderUID)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +89,8 @@ func (s *PGStore) GetOrder(orderUID string) (*models.Order, error) {
 	return order, nil
 }
 
-func (s *PGStore) SetOrder(order *models.Order) error {
-	if err := s.writeOrderTX(order); err != nil {
+func (s *Store) SetOrder(order *models.Order) error {
+	if err := s.db.writeOrder(order); err != nil {
 		return err
 	}
 

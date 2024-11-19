@@ -33,9 +33,9 @@ type Config struct {
 }
 
 func NewConfig() (*Config, error) {
-	port := getEnv(PORT, defaultPort)
-	dBconnStr := getEnv(DB_CONN_STRING, defaultConnDBString)
-	natsURL := getEnv(NATS_URL, defaultNatsURL)
+	port := getEnvStr(PORT, defaultPort)
+	dBconnStr := getEnvStr(DB_CONN_STRING, defaultConnDBString)
+	natsURL := getEnvStr(NATS_URL, defaultNatsURL)
 	cacheTTL := getEnvDuration(CACHE_TTL, defaultCacheTTL)
 	cacheCleanupInterval := getEnvDuration(CACHE_CLEANUP_INTERVAL, defaultCacheCleanupInterval)
 
@@ -51,7 +51,7 @@ func NewConfig() (*Config, error) {
 	}, nil
 }
 
-func getEnv(key string, defaultVal string) string {
+func getEnvStr(key string, defaultVal string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
@@ -60,7 +60,7 @@ func getEnv(key string, defaultVal string) string {
 }
 
 func getEnvBool(name string, defaultVal bool) bool {
-	valStr := getEnv(name, "")
+	valStr := getEnvStr(name, "")
 	if val, err := strconv.ParseBool(valStr); err == nil {
 		return val
 	}
@@ -69,7 +69,7 @@ func getEnvBool(name string, defaultVal bool) bool {
 }
 
 func getEnvDuration(name string, defaultVal time.Duration) time.Duration {
-	valStr := getEnv(name, "")
+	valStr := getEnvStr(name, "")
 	if val, err := strconv.ParseInt(valStr, 10, 64); err == nil {
 		return time.Duration(val)
 	}
